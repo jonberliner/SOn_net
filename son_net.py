@@ -28,18 +28,16 @@ class OrthogonalMatrix(nn.Module):
 
 class SOnLinear(nn.Module):
     """linear layer  where the weight matrix used is guaranteed to be in SO(n)"""
-    def __init__(self, n: int, use_bias: bool=False) -> None:
+    def __init__(self, n: int, bias: bool=False) -> None:
         super().__init__()
         self.n = n
-        self.use_bias = use_bias
+        self.use_bias = bias
 
         self.bias = torch.zeros(self.n, requires_grad=self.use_bias)
         self._orth = OrthogonalMatrix(self.n)
 
     def forward(self, input):
-        output = input @ self.weights
-        if self.use_bias:
-            output = output + self.bias
+        output = input @ self.weights + self.bias
         return output
 
     @property
@@ -57,9 +55,9 @@ if __name__ == "__main__":
     DIM = 11
 
     # assert we have an orthonormal matrix
-    layer = SOnLinear(DIM, use_bias=True)
+    layer = SOnLinear(DIM, bias=True)
     assert layer.weights.det().isclose(torch.tensor(1.))
-    layer = SOnLinear(DIM, use_bias=False)
+    layer = SOnLinear(DIM, bias=False)
     assert layer.weights.det().isclose(torch.tensor(1.))
 
     # simulate some data
@@ -68,11 +66,11 @@ if __name__ == "__main__":
     data = torch.randn(BATCH_SIZE, DIM)
 
     # ensure we've only rotated the input data, not scaled it
-    layer = SOnLinear(DIM, use_bias=False)
+    layer = SOnLinear(DIM, bias=False)
     output = layer(data)
     assert output.norm(dim=1).isclose(data.norm(dim=1)).all()
 
-    layer = SOnLinear(DIM, use_bias=True)
+    layer = SOnLinear(DIM, bias=True)
     output = layer(data)
     assert (output - layer.bias).norm(dim=1).isclose(data.norm(dim=1)).all()
 
@@ -86,7 +84,7 @@ if __name__ == "__main__":
     control, rubiks = [], []
     for d in range(DEPTH):
         control += [nn.Linear(DIM, DIM, bias=False), NONLINEARITY]
-        rubiks += [SOnLinear(DIM, use_bias=False), NONLINEARITY]
+        rubiks += [SOnLinear(DIM, bias=False), NONLINEARITY]
     control = nn.Sequential(*control)
     rubiks = nn.Sequential(*rubiks)
 
